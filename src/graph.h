@@ -15,6 +15,13 @@
 #ifndef NINJA_GRAPH_H_
 #define NINJA_GRAPH_H_
 
+#ifdef _WIN32
+#include "win32port.h"
+#else
+#include <stdint.h>
+#endif
+
+#include <set>
 #include <string>
 #include <vector>
 using namespace std;
@@ -30,6 +37,8 @@ struct Edge;
 struct Node;
 struct Pool;
 struct State;
+struct PriorityEdgeCmp;
+typedef set<Edge*, PriorityEdgeCmp> PrioritizedEdges;
 
 /// Information about a node in the dependency graph: the file, whether
 /// it's dirty, mtime, etc.
@@ -134,9 +143,11 @@ struct Edge {
     VisitDone
   };
 
-  Edge() : rule_(NULL), pool_(NULL), env_(NULL), mark_(VisitNone),
-           outputs_ready_(false), deps_missing_(false),
-           implicit_deps_(0), order_only_deps_(0), implicit_outs_(0) {}
+  Edge()
+      : rule_(NULL), pool_(NULL), env_(NULL), mark_(VisitNone),
+        outputs_ready_(false), deps_missing_(false), own_priority_(0),
+        priority_(0), implicit_deps_(0), order_only_deps_(0),
+        implicit_outs_(0) {}
 
   /// Return true if all inputs' in-edges are ready.
   bool AllInputsReady() const;
@@ -157,6 +168,9 @@ struct Edge {
 
   void Dump(const char* prefix="") const;
 
+  void UpdatePriority(int64_t dependent_priority);
+  void UpdateOwnPriority(int start_time, int end_time);
+
   const Rule* rule_;
   Pool* pool_;
   vector<Node*> inputs_;
@@ -165,9 +179,13 @@ struct Edge {
   VisitMark mark_;
   bool outputs_ready_;
   bool deps_missing_;
+  int own_priority_;
+  int64_t priority_;
 
   const Rule& rule() const { return *rule_; }
   Pool* pool() const { return pool_; }
+  int own_priority() const { return own_priority_; }
+  int64_t priority() const { return priority_; }
   int weight() const { return 1; }
   bool outputs_ready() const { return outputs_ready_; }
 
@@ -204,6 +222,16 @@ struct Edge {
   bool maybe_phonycycle_diagnostic() const;
 };
 
+struct PriorityEdgeCmp {
+  bool operator()(const Edge* a, const Edge* b) {
+    if (a == NULL)
+      return b != NULL;
+    if (b == NULL)
+      return false;
+    int64_t priority_diff = a->priority() - b->priority();
+    return ((priority_diff > 0) || (priority_diff == 0 && a < b));
+  }
+};
 
 /// ImplicitDepLoader loads implicit dependencies, as referenced via the
 /// "depfile" attribute in build files.

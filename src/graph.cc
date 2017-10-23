@@ -83,11 +83,25 @@ bool DependencyScan::RecomputeDirty(Node* node, vector<Node*>* stack,
     dirty = edge->deps_missing_ = true;
   }
 
+  // Get output build times to update the edge's own priority before starting
+  // to update the input edges' priorities.
+  if (!edge->is_phony() && build_log()) {
+    for (vector<Node*>::iterator o = edge->outputs_.begin();
+         o != edge->outputs_.end(); ++o) {
+      BuildLog::LogEntry* entry = build_log()->LookupByOutput((*o)->path());
+      if (entry) {
+        edge->UpdateOwnPriority(entry->start_time, entry->end_time);
+      }
+    }
+  }
+
   // Visit all inputs; we're dirty if any of the inputs are dirty.
   Node* most_recent_input = NULL;
   for (vector<Node*>::iterator i = edge->inputs_.begin();
        i != edge->inputs_.end(); ++i) {
     // Visit this input.
+    if (Edge* in_edge = (*i)->in_edge())
+      in_edge->UpdatePriority(edge->priority());
     if (!RecomputeDirty(*i, stack, err))
       return false;
 
@@ -407,6 +421,22 @@ void Edge::Dump(const char* prefix) const {
     printf("(null pool?)");
   }
   printf("] 0x%p\n", this);
+}
+
+void Edge::UpdatePriority(int64_t dependent_priority) {
+  int64_t new_priority = own_priority_ + dependent_priority;
+  if (priority_ < new_priority) {
+    priority_ = new_priority;
+  }
+}
+
+void Edge::UpdateOwnPriority(int start_time, int end_time) {
+  int new_own_priority = end_time - start_time;
+  if (own_priority_ < new_own_priority) {
+    int64_t new_priority = priority_ + new_own_priority - own_priority_;
+    own_priority_ = new_own_priority;
+    priority_ = new_priority;
+  }
 }
 
 bool Edge::is_phony() const {

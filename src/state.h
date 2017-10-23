@@ -22,11 +22,10 @@
 using namespace std;
 
 #include "eval_env.h"
+#include "graph.h"
 #include "hash_map.h"
 #include "util.h"
 
-struct Edge;
-struct Node;
 struct Rule;
 
 /// A pool for delayed edges.
@@ -39,7 +38,7 @@ struct Rule;
 /// completes).
 struct Pool {
   Pool(const string& name, int depth)
-    : name_(name), current_use_(0), depth_(depth), delayed_(&WeightedEdgeCmp) {}
+      : name_(name), current_use_(0), depth_(depth) {}
 
   // A depth of 0 is infinite
   bool is_valid() const { return depth_ >= 0; }
@@ -62,7 +61,7 @@ struct Pool {
   void DelayEdge(Edge* edge);
 
   /// Pool will add zero or more edges to the ready_queue
-  void RetrieveReadyEdges(set<Edge*>* ready_queue);
+  void RetrieveReadyEdges(PrioritizedEdges* ready_queue);
 
   /// Dump the Pool and its edges (useful for debugging).
   void Dump() const;
@@ -75,10 +74,7 @@ struct Pool {
   int current_use_;
   int depth_;
 
-  static bool WeightedEdgeCmp(const Edge* a, const Edge* b);
-
-  typedef set<Edge*,bool(*)(const Edge*, const Edge*)> DelayedEdges;
-  DelayedEdges delayed_;
+  PrioritizedEdges delayed_;
 };
 
 /// Global state (file status) for a single run.

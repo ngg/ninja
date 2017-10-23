@@ -90,7 +90,7 @@ private:
   /// want to build it.
   map<Edge*, bool> want_;
 
-  set<Edge*> ready_;
+  PrioritizedEdges ready_;
 
   /// Total number of edges that have commands (not phony).
   int command_edges_;

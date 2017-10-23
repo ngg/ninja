@@ -38,8 +38,8 @@ void Pool::DelayEdge(Edge* edge) {
   delayed_.insert(edge);
 }
 
-void Pool::RetrieveReadyEdges(set<Edge*>* ready_queue) {
-  DelayedEdges::iterator it = delayed_.begin();
+void Pool::RetrieveReadyEdges(PrioritizedEdges* ready_queue) {
+  PrioritizedEdges::iterator it = delayed_.begin();
   while (it != delayed_.end()) {
     Edge* edge = *it;
     if (current_use_ + edge->weight() > depth_)
@@ -53,20 +53,11 @@ void Pool::RetrieveReadyEdges(set<Edge*>* ready_queue) {
 
 void Pool::Dump() const {
   printf("%s (%d/%d) ->\n", name_.c_str(), current_use_, depth_);
-  for (DelayedEdges::const_iterator it = delayed_.begin();
-       it != delayed_.end(); ++it)
-  {
+  for (PrioritizedEdges::const_iterator it = delayed_.begin();
+       it != delayed_.end(); ++it) {
     printf("\t");
     (*it)->Dump();
   }
-}
-
-// static
-bool Pool::WeightedEdgeCmp(const Edge* a, const Edge* b) {
-  if (!a) return b;
-  if (!b) return false;
-  int weight_diff = a->weight() - b->weight();
-  return ((weight_diff < 0) || (weight_diff == 0 && a < b));
 }
 
 Pool State::kDefaultPool("", 0);
